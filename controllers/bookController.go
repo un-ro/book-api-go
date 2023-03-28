@@ -1,54 +1,57 @@
 package controllers
 
 import (
+	"book-api-go/database"
 	"book-api-go/models"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"net/http"
-	"strconv"
 )
-
-var BookDatas []models.Book
 
 // CreateBook Create
 func CreateBook(ctx *gin.Context) {
-	var book models.Book
+	db := database.GetDB()
 
+	var book models.Book
 	if err := ctx.ShouldBindJSON(&book); err != nil {
 		ctx.AbortWithError(http.StatusBadRequest, err)
+		return
 	}
 
-	book.BookId = len(BookDatas) + 1
-	BookDatas = append(BookDatas, book)
+	fmt.Println(book)
 
-	ctx.JSON(http.StatusOK, "Created")
+	err := db.Create(&book).Error
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error":   "Book not created",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, book)
 }
 
 // GetBook Get One Book
 func GetBook(ctx *gin.Context) {
+	db := database.GetDB()
 	id := ctx.Param("id")
-	condition := false
 	var book models.Book
 
-	// convert id string to int
-	bookId, err := strconv.Atoi(id)
-
+	err := db.First(&book, "book_id = ?", id).Error
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
-	}
-
-	for i, book := range BookDatas {
-		if book.BookId == bookId {
-			condition = true
-			book = BookDatas[i]
-			break
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error":   "Book not found",
+				"message": fmt.Sprintf("Book with id %s not found", id),
+			})
+			return
 		}
-	}
-
-	if !condition {
-		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 			"error":   "Book not found",
-			"message": fmt.Sprintf("Book with id %s not found", id),
+			"message": err.Error(),
 		})
 		return
 	}
@@ -58,21 +61,33 @@ func GetBook(ctx *gin.Context) {
 
 // GetBooks Get All Books
 func GetBooks(ctx *gin.Context) {
-	if len(BookDatas) <= 0 {
-		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   "Book not found",
-			"message": "Book is empty",
+	db := database.GetDB()
+	var books []models.Book
+
+	err := db.Find(&books).Error
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error":   "Books not found",
+			"message": err.Error(),
 		})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, BookDatas)
+	if len(books) <= 0 {
+		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+			"error":   "Books not found",
+			"message": "No books found",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, books)
 }
 
 // UpdateBook Update Book
 func UpdateBook(ctx *gin.Context) {
+	db := database.GetDB()
 	id := ctx.Param("id")
-	condition := false
 	var book models.Book
 
 	if err := ctx.ShouldBindJSON(&book); err != nil {
@@ -80,51 +95,31 @@ func UpdateBook(ctx *gin.Context) {
 		return
 	}
 
-	// convert id string to int
-	bookId, err := strconv.Atoi(id)
+	err := db.Model(&book).Where("book_id = ?", id).Updates(models.Book{Author: book.Author, Title: book.Title}).Error
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error":   "Book not updated",
+			"message": err.Error(),
+		})
 		return
 	}
 
-	for i, book := range BookDatas {
-		if book.BookId == bookId {
-			condition = true
-			BookDatas[i] = book
-			BookDatas[i].BookId = bookId
-			break
-		}
-	}
-
-	if !condition {
-		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   "Book not found",
-			"message": fmt.Sprintf("Book with id %s not found", id),
-		})
-	}
-
-	ctx.JSON(http.StatusOK, "Updated")
+	ctx.JSON(http.StatusOK, book)
 }
 
 // DeleteBook Delete Book
 func DeleteBook(ctx *gin.Context) {
+	db := database.GetDB()
 	id := ctx.Param("id")
-	condition := false
 
-	for i, book := range BookDatas {
-		if book.BookId == book.BookId {
-			condition = true
-			BookDatas = append(BookDatas[:i], BookDatas[i+1:]...)
-			break
-		}
-	}
-
-	if !condition {
-		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   "Book not found",
-			"message": fmt.Sprintf("Book with id %s not found", id),
+	err := db.Where("book_id = ?", id).Delete(&models.Book{}).Error
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error":   "Book not deleted",
+			"message": err.Error(),
 		})
+		return
 	}
 
-	ctx.JSON(http.StatusOK, "Deleted")
+	ctx.JSON(http.StatusOK, "Book deleted successfully")
 }
