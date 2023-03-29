@@ -15,7 +15,11 @@ func CreateBook(ctx *gin.Context) {
 	var book models.Book
 
 	if err := ctx.ShouldBindJSON(&book); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": err.Error(),
+		})
+		return
 	}
 
 	book.BookId = len(BookDatas) + 1
@@ -27,33 +31,25 @@ func CreateBook(ctx *gin.Context) {
 // GetBook Get One Book
 func GetBook(ctx *gin.Context) {
 	id := ctx.Param("id")
-	condition := false
-	var book models.Book
 
 	// convert id string to int
 	bookId, err := strconv.Atoi(id)
-
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
-	}
-
-	for i, book := range BookDatas {
-		if book.BookId == bookId {
-			condition = true
-			book = BookDatas[i]
-			break
-		}
-	}
-
-	if !condition {
-		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   "Book not found",
-			"message": fmt.Sprintf("Book with id %s not found", id),
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": err.Error(),
 		})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, book)
+	if bookId > len(BookDatas) {
+		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+			"error":   "Book not found",
+			"message": fmt.Sprintf("Book with id %s not found", id),
+		})
+	} else {
+		ctx.JSON(http.StatusOK, BookDatas[bookId-1])
+	}
 }
 
 // GetBooks Get All Books
@@ -72,59 +68,61 @@ func GetBooks(ctx *gin.Context) {
 // UpdateBook Update Book
 func UpdateBook(ctx *gin.Context) {
 	id := ctx.Param("id")
-	condition := false
-	var book models.Book
+	var bookData models.Book
 
-	if err := ctx.ShouldBindJSON(&book); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+	if err := ctx.ShouldBindJSON(&bookData); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": err.Error(),
+		})
 		return
 	}
 
 	// convert id string to int
 	bookId, err := strconv.Atoi(id)
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": "Can't convert id, please check your id",
+		})
 		return
 	}
 
-	for i, book := range BookDatas {
-		if book.BookId == bookId {
-			condition = true
-			BookDatas[i] = book
-			BookDatas[i].BookId = bookId
-			break
-		}
-	}
-
-	if !condition {
+	if bookId > len(BookDatas) {
 		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"error":   "Book not found",
 			"message": fmt.Sprintf("Book with id %s not found", id),
 		})
-	}
+	} else {
+		BookDatas[bookId-1] = bookData
+		BookDatas[bookId-1].BookId = bookId
 
-	ctx.JSON(http.StatusOK, "Updated")
+		ctx.JSON(http.StatusOK, "Updated")
+	}
 }
 
 // DeleteBook Delete Book
 func DeleteBook(ctx *gin.Context) {
 	id := ctx.Param("id")
-	condition := false
 
-	for i, book := range BookDatas {
-		if book.BookId == book.BookId {
-			condition = true
-			BookDatas = append(BookDatas[:i], BookDatas[i+1:]...)
-			break
-		}
+	// convert id string to int
+	bookId, err := strconv.Atoi(id)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": "Can't convert id, please check your id",
+		})
+		return
 	}
 
-	if !condition {
+	if bookId > len(BookDatas) {
 		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"error":   "Book not found",
 			"message": fmt.Sprintf("Book with id %s not found", id),
 		})
+		return
+	} else {
+		BookDatas = append(BookDatas[:bookId-1], BookDatas[bookId:]...)
+		ctx.JSON(http.StatusOK, "Deleted")
 	}
-
-	ctx.JSON(http.StatusOK, "Deleted")
 }
