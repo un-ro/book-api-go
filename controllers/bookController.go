@@ -8,8 +8,6 @@ import (
 	"net/http"
 )
 
-var BookDatas []models.Book
-
 // CreateBook Create
 func CreateBook(ctx *gin.Context) {
 	db := database.GetDB()
