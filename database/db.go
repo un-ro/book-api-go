@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	HOST   = "localhost"
-	PORT   = 5432
-	USER   = "postgres"
-	DBNAME = "fga"
+	HOST     = "localhost"
+	PORT     = 5432
+	USER     = "postgres"
+	PASSWORD = ""
+	DBNAME   = "fga"
 )
 
 var (
@@ -20,7 +21,7 @@ var (
 )
 
 func GetDB() *sql.DB {
-	psqlInfo := fmt.Sprintf("postgres://postgres:%s@%s/%s?sslmode=disable", USER, HOST, DBNAME)
+	psqlInfo := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", USER, PASSWORD, HOST, PORT, DBNAME)
 
 	db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
